@@ -20,6 +20,7 @@ public sealed class Advice
         {
             return endDateTime.Value < startDateTime ? IsTimeOuted(startDateTime, now, monitorInterval) : IsTimeOuted(startDateTime, endDateTime.Value, TimeSpan.Zero);
         }
+
         return IsTimeOuted(startDateTime, now, monitorInterval);
     }
 
