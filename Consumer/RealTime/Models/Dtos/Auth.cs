@@ -1,12 +1,12 @@
 ﻿using System.Text;
 
-namespace Consumer.RealTime.Models;
+namespace Consumer.RealTime.Models.Dtos;
 
 public sealed class Auth
 {
     public string Token { get; init; } = string.Empty;
 
-    public static Auth GetWithUserNameAndPassword(string userName, string password) => 
+    public static Auth GetWithUserNameAndPassword(string userName, string password) =>
         new() { Token = GetEncodedUserNameAndPassword(userName, password) };
 
     private static string GetEncodedUserNameAndPassword(string userName, string password) =>

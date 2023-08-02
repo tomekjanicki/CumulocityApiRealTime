@@ -1,29 +1,23 @@
 ﻿namespace Consumer.RealTime.Models;
 
-public sealed class TaskData<TParam> : IDisposable
+public sealed class TaskData<TParam> : IAsyncDisposable
 {
     private readonly CancellationTokenSource _cancellationTokenSource;
     private readonly Task _task;
 
-    public TaskData(TParam param, Func<CancellationTokenSource, TParam, Task> task)
+    public TaskData(TParam param, Func<TParam, CancellationTokenSource, Task> task)
     {
         _cancellationTokenSource = new CancellationTokenSource();
-        _task = task(_cancellationTokenSource, param);
+        _task = task(param, _cancellationTokenSource);
     }
 
-    public async Task Stop()
+    private async Task Stop()
     {
-        try
-        {
-            _cancellationTokenSource.Cancel();
-            await _task.ConfigureAwait(false);
-            _cancellationTokenSource.Dispose();
-        }
-        catch (TaskCanceledException)
-        {
-        }
+        _cancellationTokenSource.Cancel();
+        await _task.ConfigureAwait(false);
+        _cancellationTokenSource.Dispose();
     }
 
-    public void Dispose() =>
-        _cancellationTokenSource.Dispose();
+    public async ValueTask DisposeAsync() => 
+        await Stop().ConfigureAwait(false);
 }

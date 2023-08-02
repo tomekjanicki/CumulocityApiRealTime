@@ -1,7 +1,7 @@
 ﻿using Consumer.RealTime.Extensions;
 using OneOf;
 
-namespace Consumer.RealTime.Models;
+namespace Consumer.RealTime.Models.Dtos;
 
 public sealed class HeartbeatResponse : Response
 {

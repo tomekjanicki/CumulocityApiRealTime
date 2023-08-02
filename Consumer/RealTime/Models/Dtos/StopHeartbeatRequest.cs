@@ -1,4 +1,4 @@
-﻿namespace Consumer.RealTime.Models;
+﻿namespace Consumer.RealTime.Models.Dtos;
 
 public sealed class StopHeartbeatRequest : Request
 {
@@ -6,7 +6,7 @@ public sealed class StopHeartbeatRequest : Request
 
     public string ClientId { get; init; } = string.Empty;
 
-    public StopHeartbeatRequest() 
+    public StopHeartbeatRequest()
         : base(Name)
     {
     }

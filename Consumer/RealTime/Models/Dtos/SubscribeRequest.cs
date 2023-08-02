@@ -1,4 +1,4 @@
-﻿namespace Consumer.RealTime.Models;
+﻿namespace Consumer.RealTime.Models.Dtos;
 
 public sealed class SubscribeRequest : Request
 {
@@ -9,7 +9,7 @@ public sealed class SubscribeRequest : Request
 
     public string ClientId { get; init; } = string.Empty;
 
-    public SubscribeRequest() 
+    public SubscribeRequest()
         : base(Name)
     {
     }

@@ -1,4 +1,4 @@
-﻿namespace Consumer.RealTime.Models;
+﻿namespace Consumer.RealTime.Models.Dtos;
 
 public sealed class UnsubscribeRequest : Request
 {
@@ -10,7 +10,7 @@ public sealed class UnsubscribeRequest : Request
 
     public string ClientId { get; init; } = string.Empty;
 
-    public UnsubscribeRequest() : 
+    public UnsubscribeRequest() :
         base(Name)
     {
     }

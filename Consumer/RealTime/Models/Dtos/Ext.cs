@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Consumer.RealTime.Models;
+namespace Consumer.RealTime.Models.Dtos;
 
 public sealed class Ext
 {

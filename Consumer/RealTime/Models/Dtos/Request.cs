@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 
-namespace Consumer.RealTime.Models;
+namespace Consumer.RealTime.Models.Dtos;
 
 public abstract class Request
 {
@@ -16,6 +16,6 @@ public abstract class Request
     protected static byte[] GetRequestAsBytes<T>(T request) =>
         GetObjectAsUtf8Bytes(new List<T> { request });
 
-    private static byte[] GetObjectAsUtf8Bytes<T>(T obj) => 
+    private static byte[] GetObjectAsUtf8Bytes<T>(T obj) =>
         JsonSerializer.SerializeToUtf8Bytes(obj, Constants.CamelCaseJsonSerializerOptions);
 }

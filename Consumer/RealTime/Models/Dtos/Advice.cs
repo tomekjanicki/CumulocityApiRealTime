@@ -1,4 +1,4 @@
-﻿namespace Consumer.RealTime.Models;
+﻿namespace Consumer.RealTime.Models.Dtos;
 
 public sealed class Advice
 {

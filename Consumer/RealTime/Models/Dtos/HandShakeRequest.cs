@@ -1,4 +1,4 @@
-﻿namespace Consumer.RealTime.Models;
+﻿namespace Consumer.RealTime.Models.Dtos;
 
 public sealed class HandShakeRequest : Request
 {
@@ -9,7 +9,7 @@ public sealed class HandShakeRequest : Request
 
     public Ext Ext { get; init; } = new();
 
-    public HandShakeRequest() 
+    public HandShakeRequest()
         : base(Name)
     {
     }

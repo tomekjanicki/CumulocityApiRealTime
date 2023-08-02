@@ -1,4 +1,4 @@
-﻿using Consumer.RealTime.Models;
+﻿using Consumer.RealTime.Models.Dtos;
 using Consumer.RealTime.Services;
 
 namespace Consumer.RealTime.Extensions;

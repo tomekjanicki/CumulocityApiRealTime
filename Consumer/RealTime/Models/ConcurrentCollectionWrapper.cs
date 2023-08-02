@@ -1,4 +1,6 @@
-﻿namespace Consumer.RealTime.Models;
+﻿using Consumer.RealTime.Models.Dtos;
+
+namespace Consumer.RealTime.Models;
 
 public sealed class ConcurrentCollectionWrapper<T>
     where T : Response

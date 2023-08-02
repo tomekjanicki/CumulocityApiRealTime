@@ -1,7 +1,7 @@
 ﻿using Consumer.Extensions;
 using Consumer.RealTime.Extensions;
 
-namespace Consumer.RealTime.Models;
+namespace Consumer.RealTime.Models.Dtos;
 
 public abstract class Response
 {

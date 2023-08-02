@@ -13,6 +13,7 @@ public static class ConfigureIoC
         services.AddSingleton<IRealTimeWebSocketClient, RealTimeWebSocketClient>();
         services.AddSingleton<RealTimeExecutor>();
         services.AddSingleton<IDataFeedHandler, DataFeedHandler>();
+        services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<IClientWebSocketWrapperFactory, ClientWebSocketWrapperFactory>();
     }
 }

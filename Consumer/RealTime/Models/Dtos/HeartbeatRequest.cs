@@ -1,4 +1,4 @@
-﻿namespace Consumer.RealTime.Models;
+﻿namespace Consumer.RealTime.Models.Dtos;
 
 public sealed class HeartbeatRequest : Request
 {
@@ -10,7 +10,7 @@ public sealed class HeartbeatRequest : Request
 
     public Advice Advice { get; init; } = new();
 
-    public HeartbeatRequest() 
+    public HeartbeatRequest()
         : base(Name)
     {
     }

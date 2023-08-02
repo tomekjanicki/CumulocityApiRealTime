@@ -1,14 +1,21 @@
-﻿namespace Consumer.RealTime.Models;
+﻿using Consumer.RealTime.Services;
+
+namespace Consumer.RealTime.Models;
 
 public sealed class HeartBeatTimes
 {
+    private readonly IDateTimeProvider _dateTimeProvider;
+
+    public HeartBeatTimes(IDateTimeProvider dateTimeProvider) =>
+        _dateTimeProvider = dateTimeProvider;
+
     public DateTime? Start { get; private set; }
 
     public DateTime? End { get; private set; }
 
-    public void SetStart() => Start = DateTime.Now;
+    public void SetStart() => Start = _dateTimeProvider.GetNow();
 
-    public void SetEnd() => End = DateTime.Now;
+    public void SetEnd() => End = _dateTimeProvider.GetNow();
 
     public void Clear()
     {
