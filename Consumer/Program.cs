@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 
 var host = Host
     .CreateDefaultBuilder(args)
-    .ConfigureAppConfiguration(builder => builder.AddJsonFile("appSettings.json"))
+    .ConfigureAppConfiguration(static builder => builder.AddJsonFile("appSettings.json"))
     .ConfigureServices(static (context, services) => ConfigureIoC.ConfigureServices(context, services))
     .Build();
 
