@@ -22,13 +22,13 @@ public sealed class ClientWebSocketWrapper : IClientWebSocketWrapper
     public ValueTask Send(byte[] utf8Bytes, CancellationToken cancellationToken = default) => 
         _clientWebSocket.Send(utf8Bytes, cancellationToken);
 
-    public Task<ReceiveResult> Receive(CancellationToken cancellationToken) => 
+    public Task<ReceiveResult> Receive(CancellationToken cancellationToken = default) => 
         _clientWebSocket.Receive(cancellationToken);
 
-    public Task Close(CancellationToken cancellationToken) => 
+    public Task Close(CancellationToken cancellationToken = default) => 
         _clientWebSocket.Close(cancellationToken);
 
-    public Task<Error<string>?> Connect(Uri uri, CancellationToken cancellationToken) => 
+    public Task<Error<string>?> Connect(Uri uri, CancellationToken cancellationToken = default) => 
         _clientWebSocket.Connect(uri, cancellationToken);
 
     public WebSocketState State => _clientWebSocket.State;

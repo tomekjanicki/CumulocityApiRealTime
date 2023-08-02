@@ -8,11 +8,11 @@ public interface IClientWebSocketWrapper : IDisposable
 {
     ValueTask Send(byte[] utf8Bytes, CancellationToken cancellationToken = default);
 
-    Task<ReceiveResult> Receive(CancellationToken cancellationToken);
+    Task<ReceiveResult> Receive(CancellationToken cancellationToken = default);
 
-    Task Close(CancellationToken cancellationToken);
+    Task Close(CancellationToken cancellationToken = default);
 
-    Task<Error<string>?> Connect(Uri uri, CancellationToken cancellationToken);
+    Task<Error<string>?> Connect(Uri uri, CancellationToken cancellationToken = default);
 
     WebSocketState State { get; }
 }

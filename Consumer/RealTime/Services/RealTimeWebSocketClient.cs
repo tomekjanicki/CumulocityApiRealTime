@@ -71,7 +71,6 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         {
             throw new InvalidOperationException("Not connected.");
         }
-        var requestId = Guid.NewGuid().ToString();
         ClearCollectionWrappers();
         _heartBeatTimes.Clear();
         if (_clientWebSocket is null || _clientWebSocket.State != WebSocketState.Open)
@@ -87,6 +86,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         if (full)
         {
             _logger.LogDebug("Executing full reconnect.");
+            var requestId = Guid.NewGuid().ToString();
             await SendHandShakeRequest(requestId, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
             var handShakeResponse = Wrappers.HandleResponse((_handShakeResponses, requestId),
                 static p => p._handShakeResponses.TryGetAndRemove(p.requestId),
@@ -118,11 +118,6 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         {
             return "Already connected.".GetError(false);
         }
-        var requestId = Guid.NewGuid().ToString();
-        _serverAdvice = null;
-        _heartBeatTimes.Clear();
-        _subscriptions.Clear();
-        ClearCollectionWrappers();
         _clientWebSocket = _clientWebSocketWrapperFactory.GetNewInstance(_credentials);
         var connectResult = await _clientWebSocket.Connect(_uri, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
         if (connectResult is not null)
@@ -131,6 +126,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         }
         _receiveHandlerTaskData = new TaskData<ReceiveHandler.Dependencies<RealTimeWebSocketClient>>(GetReceiveHandlerDependencies(), static (source, p) => ReceiveHandler.Handler(p, source.Token));
         _monitorHandlerTaskData = new TaskData<MonitorHandler.Dependencies<RealTimeWebSocketClient>>(GetMonitorHandlerDependencies(), static (source, p) => MonitorHandler.Handler(p, source.Token));
+        var requestId = Guid.NewGuid().ToString();
         await SendHandShakeRequest(requestId, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
         var handShakeResponse = Wrappers.HandleResponse((_handShakeResponses, requestId),
             static p => p._handShakeResponses.TryGetAndRemove(p.requestId),
@@ -316,12 +312,19 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
             return;
         }
         await StopHeartbeat(_clientId!, cancellationToken).ConfigureAwait(false);
+        await DisconnectInt(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task DisconnectInt(CancellationToken cancellationToken)
+    {
         await _clientWebSocket!.Close(cancellationToken).ConfigureAwait(false);
         await _receiveHandlerTaskData!.Stop().ConfigureAwait(false);
         await _monitorHandlerTaskData!.Stop().ConfigureAwait(false);
         _subscriptions.Clear();
+        _heartBeatTimes.Clear();
         ClearCollectionWrappers();
         _clientWebSocket!.Dispose();
+        _fullReconnect = false;
         SetToNull();
     }
 
@@ -334,9 +337,12 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
     public void Dispose()
     {
         _subscriptions.Clear();
+        _heartBeatTimes.Clear();
+        ClearCollectionWrappers();
         _clientWebSocket?.Dispose();
         _monitorHandlerTaskData?.Dispose();
         _receiveHandlerTaskData?.Dispose();
+        _fullReconnect = false;
         SetToNull();
     }
 
@@ -347,7 +353,6 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         _receiveHandlerTaskData = null;
         _clientId = null;
         _serverAdvice = null;
-        _heartBeatTimes.Clear();
     }
 
     private void ClearCollectionWrappers()
