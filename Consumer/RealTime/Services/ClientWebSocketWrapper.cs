@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System.Net.WebSockets;
+﻿using System.Net.WebSockets;
 using Consumer.Extensions;using Consumer.Models;
 using Consumer.RealTime.Models;
 using Microsoft.Extensions.Logging;
@@ -9,7 +8,6 @@ namespace Consumer.RealTime.Services;
 
 public sealed class ClientWebSocketWrapper<TParam> : IClientWebSocketWrapper
 {
-    private readonly ICredentials _credentials;
     private readonly Uri _uri;
     private readonly ILogger _logger;
     private readonly TimeSpan _monitorDelay;
@@ -19,10 +17,9 @@ public sealed class ClientWebSocketWrapper<TParam> : IClientWebSocketWrapper
     private readonly TimeSpan _minimalDelay;
     private Argument<ClientWebSocketWrapper<TParam>>? _argument;
 
-    public ClientWebSocketWrapper(ICredentials credentials, Uri uri, ILogger logger, TimeSpan monitorDelay, Func<byte[], TParam, CancellationToken, Task> dataHandler,
+    public ClientWebSocketWrapper(Uri uri, ILogger logger, TimeSpan monitorDelay, Func<byte[], TParam, CancellationToken, Task> dataHandler,
         Func<WebSocketState, TParam, CancellationToken, Task> monitorHandler, TParam param)
     {
-        _credentials = credentials;
         _uri = uri;
         _logger = logger;
         _monitorDelay = monitorDelay;
@@ -38,7 +35,7 @@ public sealed class ClientWebSocketWrapper<TParam> : IClientWebSocketWrapper
         {
             return await Connect(cancellationToken).ConfigureAwait(false);
         }
-        _argument.ReplaceClient();
+        _argument.RecreateClient();
 
         return await _argument.Connect(_uri, cancellationToken).ConfigureAwait(false);
     }
@@ -49,8 +46,7 @@ public sealed class ClientWebSocketWrapper<TParam> : IClientWebSocketWrapper
         {
             return null;
         }
-        _argument = new Argument<ClientWebSocketWrapper<TParam>>(_credentials,
-            new TaskData<ClientWebSocketWrapper<TParam>>(this, static (wrapper, source) => wrapper.ReceiveHandler(source.Token)),
+        _argument = new Argument<ClientWebSocketWrapper<TParam>>(new TaskData<ClientWebSocketWrapper<TParam>>(this, static (wrapper, source) => wrapper.ReceiveHandler(source.Token)),
             new TaskData<ClientWebSocketWrapper<TParam>>(this, static (wrapper, source) => wrapper.MonitorHandler(source.Token)));
 
         return await _argument.Connect(_uri, cancellationToken).ConfigureAwait(false);
@@ -153,22 +149,17 @@ public sealed class ClientWebSocketWrapper<TParam> : IClientWebSocketWrapper
         private readonly TaskData<T> _monitorTaskData;
         private ClientWebSocket _clientWebSocket;
 
-        public Argument(ICredentials credentials, TaskData<T> receiveTaskData, TaskData<T> monitorTaskData)
+        public Argument(TaskData<T> receiveTaskData, TaskData<T> monitorTaskData)
         {
-            var clientWebSocket = new ClientWebSocket();
-            clientWebSocket.Options.Credentials = credentials;
-            _clientWebSocket = clientWebSocket;
+            _clientWebSocket = new ClientWebSocket();
             _receiveTaskData = receiveTaskData;
             _monitorTaskData = monitorTaskData;
         }
 
-        public void ReplaceClient()
+        public void RecreateClient()
         {
-            var credentials = _clientWebSocket.Options.Credentials;
             _clientWebSocket.Dispose();
-            var clientWebSocket = new ClientWebSocket();
-            clientWebSocket.Options.Credentials = credentials;
-            _clientWebSocket = clientWebSocket;
+            _clientWebSocket = new ClientWebSocket();
         }
 
         public ValueTask Send(byte[] utf8Bytes, CancellationToken cancellationToken = default) =>
