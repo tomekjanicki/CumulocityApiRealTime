@@ -5,10 +5,7 @@ namespace Consumer.RealTime.Models;
 public sealed class ConcurrentCollectionWrapper<T>
     where T : Response
 {
-    private readonly IDictionary<string, T> _items;
-
-    public ConcurrentCollectionWrapper() =>
-        _items = new Dictionary<string, T>();
+    private readonly IDictionary<string, T> _items = new Dictionary<string, T>();
 
 
     public T? TryGetAndRemove(string id)

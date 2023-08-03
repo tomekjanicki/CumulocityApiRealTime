@@ -7,10 +7,7 @@ namespace Consumer.RealTime.Services;
 public sealed class ResponseProcessor<T>
     where T : Response
 {
-    private readonly ConcurrentCollectionWrapper<T> _responses;
-
-    public ResponseProcessor() => 
-        _responses = new ConcurrentCollectionWrapper<T>();
+    private readonly ConcurrentCollectionWrapper<T> _responses = new();
 
     public async Task<TResult> SendAndReceive<TResult, TParam>(IClientWebSocketWrapper clientWebSocketWrapper, CancellationTokenSources tokenSources, TParam param, Func<string, TParam, Request> requestProvider, Func<T, TResult> getOkMessage,
         Func<TResult> getCancelMessage)
