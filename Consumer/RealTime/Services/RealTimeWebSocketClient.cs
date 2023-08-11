@@ -4,6 +4,7 @@ using Consumer.RealTime.Models;
 using Consumer.RealTime.Models.Dtos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Error = Consumer.RealTime.Models.Error;
 
 namespace Consumer.RealTime.Services;
 
@@ -23,7 +24,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
     private readonly ResponseProcessor<UnsubscribeResponse> _unsubscribeResponses;
     private readonly HashSet<Subscription> _subscriptions;
     private readonly HeartBeatTimes _heartBeatTimes;
-    private Argument? _argument; 
+    private IRealTimeWebSocketClientArgument _argument; 
 
     public RealTimeWebSocketClient(IOptions<ConfigurationSettings> options, IDataFeedHandler dataFeedHandler, ILogger<RealTimeWebSocketClient> logger,
         IDateTimeProvider dateTimeProvider, IClientWebSocketWrapperFactory clientWebSocketWrapperFactory)
@@ -48,6 +49,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         };
         _subscriptions = new HashSet<Subscription>();
         _heartBeatTimes = new HeartBeatTimes(dateTimeProvider);
+        _argument = NullRealTimeWebSocketClientArgument.Instance;
     }
 
     public Task<Error?> Connect(CancellationToken cancellationToken = default) =>
@@ -86,8 +88,8 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
 
     private async Task MonitorHandler(WebSocketState state, CancellationToken cancellationToken)
     {
-        var timeOuted = _argument is not null && _argument.Advice.IsTimeOuted(_heartBeatTimes, _dateTimeProvider.GetNow(), _monitorDelay);
-        var fullReconnect = _argument is not null && _argument.FullReconnect;
+        var timeOuted = _argument.Advice.IsTimeOuted(_heartBeatTimes, _dateTimeProvider.GetNow(), _monitorDelay);
+        var fullReconnect = _argument.FullReconnect;
         _logger.LogDebug("ClientWebSocketState: {State} FullReconnect: {FullReconnect}, HeartBeats: {HeartBeats}, TimeOuted: {TimeOuted}.", state, fullReconnect, _heartBeatTimes, timeOuted);
         if (state is WebSocketState.Aborted or WebSocketState.Closed || fullReconnect || timeOuted)
         {
@@ -97,7 +99,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
     
     private async Task<Error?> ReConnectInt(bool full, CancellationTokenSources tokenSources)
     {
-        if (_argument is null)
+        if (ArgumentIsNullRealTimeWebSocketClientArgument())
         {
             throw new InvalidOperationException("Not connected.");
         }
@@ -139,7 +141,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
 
     private async Task<Error?> ConnectInt(CancellationTokenSources tokenSources)
     {
-        if (_argument is not null)
+        if (!ArgumentIsNullRealTimeWebSocketClientArgument())
         {
             return "Already connected.".GetError(false);
         }
@@ -161,7 +163,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         {
             return response.AsT1;
         }
-        _argument = new Argument(response.AsT0, clientWebSocket, _defaultAdvice, false);
+        _argument = new RealTimeWebSocketClientArgument(response.AsT0, clientWebSocket, _defaultAdvice, false);
         await SendHeartbeat(_argument, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
 
         return null;
@@ -173,14 +175,14 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         if (result.IsT0)
         {
             _logger.LogDebug("Get successful heartbeat results.");
-            _argument = _argument!.CreateWithAdviceAndFullReconnect(result.AsT0, false);
+            _argument = _argument.CreateWithAdviceAndFullReconnect(result.AsT0, false);
             _heartBeatTimes.SetEnd();
             await SendHeartbeat(_argument, cancellationToken).ConfigureAwait(false);
 
             return;
         }
         _logger.LogDebug("Get error heartbeat results. {Error}", result.AsT1);
-        _argument = _argument!.CreateWithFullReconnect(true);
+        _argument = _argument.CreateWithFullReconnect(true);
     }
 
     private async Task HandleAbortedOrClosedOrFullReconnectOrTimeOuted(bool fullReconnect, CancellationToken cancellationToken)
@@ -236,10 +238,10 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
                 _logger.LogDebug("Subscribed.");
             }
         }
-        _argument = _argument!.CreateWithFullReconnect(false);
+        _argument = _argument.CreateWithFullReconnect(false);
     }
 
-    private async Task SendHeartbeat(Argument argument, CancellationToken cancellationToken)
+    private async Task SendHeartbeat(IRealTimeWebSocketClientArgument argument, CancellationToken cancellationToken)
     {
         var request = new HeartbeatRequest
         {
@@ -252,7 +254,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         _logger.LogDebug("Heartbeat sent.");
     }
 
-    private static ValueTask StopHeartbeat(Argument argument, CancellationToken cancellationToken) => 
+    private static ValueTask StopHeartbeat(IRealTimeWebSocketClientArgument argument, CancellationToken cancellationToken) => 
         argument.ClientWebSocketWrapper.Send(new StopHeartbeatRequest { ClientId = argument.ClientId }, cancellationToken);
 
     public Task<Error?> Subscribe(Subscription subscription, CancellationToken cancellationToken = default) =>
@@ -260,7 +262,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
 
     private async Task<Error?> SubscribeInt(Subscription subscription, CancellationTokenSources tokenSources)
     {
-        if (_argument is null)
+        if (ArgumentIsNullRealTimeWebSocketClientArgument())
         {
             return "Connect was not called.".GetError(false);
         }
@@ -286,7 +288,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
 
     private async Task<Error?> UnsubscribeInt(Subscription subscription, CancellationTokenSources tokenSources)
     {
-        if (_argument is null)
+        if (ArgumentIsNullRealTimeWebSocketClientArgument())
         {
             return "Connect was not called.".GetError(false);
         }
@@ -309,7 +311,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
 
     public async Task Disconnect(CancellationToken cancellationToken = default)
     {
-        if (_argument is null)
+        if (ArgumentIsNullRealTimeWebSocketClientArgument())
         {
             return;
         }
@@ -317,17 +319,17 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         await DisconnectInt(_argument, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task DisconnectInt(Argument argument, CancellationToken cancellationToken)
+    private async Task DisconnectInt(IRealTimeWebSocketClientArgument argument, CancellationToken cancellationToken)
     {
         await argument.ClientWebSocketWrapper.Close(cancellationToken).ConfigureAwait(false);
         _subscriptions.Clear();
         _heartBeatTimes.Clear();
         ClearCollectionWrappers();
         await argument.ClientWebSocketWrapper.DisposeAsync().ConfigureAwait(false);
-        _argument = null;
+        _argument = NullRealTimeWebSocketClientArgument.Instance;
     }
 
-    public bool Connected => _argument is not null;
+    public bool Connected => !ArgumentIsNullRealTimeWebSocketClientArgument();
     public IReadOnlySet<Subscription> Subscriptions => _subscriptions;
 
     private static Error GetTimeoutError()
@@ -338,11 +340,11 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         _subscriptions.Clear();
         _heartBeatTimes.Clear();
         ClearCollectionWrappers();
-        if (_argument is not null)
+        if (!ArgumentIsNullRealTimeWebSocketClientArgument())
         {
             await _argument.ClientWebSocketWrapper.DisposeAsync().ConfigureAwait(false);
         }
-        _argument = null;
+        _argument = NullRealTimeWebSocketClientArgument.Instance;
     }
 
     private void ClearCollectionWrappers()
@@ -352,31 +354,6 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         _unsubscribeResponses.Clear();
     }
 
-    private sealed class Argument
-    {
-        public Argument(string clientId, IClientWebSocketWrapper clientWebSocketWrapper, Advice advice, bool fullReconnect)
-        {
-            ClientId = clientId;
-            ClientWebSocketWrapper = clientWebSocketWrapper;
-            Advice = advice;
-            FullReconnect = fullReconnect;
-        }
-
-        public string ClientId { get; }
-
-        public IClientWebSocketWrapper ClientWebSocketWrapper { get; }
-
-        public Advice Advice { get; }
-
-        public bool FullReconnect { get; }
-
-        public Argument CreateWithAdviceAndFullReconnect(Advice advice, bool fullReconnect) => 
-            new(ClientId, ClientWebSocketWrapper, advice, fullReconnect);
-
-        public Argument CreateWithClientIdAndAdvice(string clientId, Advice advice) =>
-            new(clientId, ClientWebSocketWrapper, advice, FullReconnect);
-
-        public Argument CreateWithFullReconnect(bool fullReconnect) =>
-            new(ClientId, ClientWebSocketWrapper, Advice, fullReconnect);
-    }
+    private bool ArgumentIsNullRealTimeWebSocketClientArgument() => 
+        _argument is NullRealTimeWebSocketClientArgument;
 }
