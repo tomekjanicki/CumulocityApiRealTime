@@ -23,7 +23,6 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
     private readonly ResponseProcessor<UnsubscribeResponse> _unsubscribeResponses;
     private readonly HashSet<Subscription> _subscriptions;
     private readonly HeartBeatTimes _heartBeatTimes;
-    private bool _fullReconnect;
     private Argument? _argument; 
 
     public RealTimeWebSocketClient(IOptions<ConfigurationSettings> options, IDataFeedHandler dataFeedHandler, ILogger<RealTimeWebSocketClient> logger,
@@ -54,7 +53,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
     public Task<Error?> Connect(CancellationToken cancellationToken = default) =>
         Wrappers.ExecutionWrapper(this, _operationTimeout, static (p, sources) => p.ConnectInt(sources), static () => GetTimeoutError(), cancellationToken);
 
-    private Task<Error?> ReConnect(bool full, CancellationToken cancellationToken = default) =>
+    private  Task<Error?> ReConnect(bool full, CancellationToken cancellationToken = default) =>
         Wrappers.ExecutionWrapper((This: this, full), _operationTimeout, static (p, sources) => p.This.ReConnectInt(p.full, sources), static () => GetTimeoutError(), cancellationToken);
 
     private async Task DataHandler(byte[] bytes, CancellationToken cancellationToken)
@@ -88,11 +87,11 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
     private async Task MonitorHandler(WebSocketState state, CancellationToken cancellationToken)
     {
         var timeOuted = _argument is not null && _argument.Advice.IsTimeOuted(_heartBeatTimes, _dateTimeProvider.GetNow(), _monitorDelay);
-        var fullReconnect = _fullReconnect;
+        var fullReconnect = _argument is not null && _argument.FullReconnect;
         _logger.LogDebug("ClientWebSocketState: {State} FullReconnect: {FullReconnect}, HeartBeats: {HeartBeats}, TimeOuted: {TimeOuted}.", state, fullReconnect, _heartBeatTimes, timeOuted);
         if (state is WebSocketState.Aborted or WebSocketState.Closed || fullReconnect || timeOuted)
         {
-            await HandleAbortedOrClosedOrFullReconnectOrTimeOuted(cancellationToken).ConfigureAwait(false);
+            await HandleAbortedOrClosedOrFullReconnectOrTimeOuted(fullReconnect, cancellationToken).ConfigureAwait(false);
         }
     }
     
@@ -162,7 +161,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         {
             return response.AsT1;
         }
-        _argument = new Argument(response.AsT0, clientWebSocket, _defaultAdvice);
+        _argument = new Argument(response.AsT0, clientWebSocket, _defaultAdvice, false);
         await SendHeartbeat(_argument, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
 
         return null;
@@ -174,22 +173,21 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         if (result.IsT0)
         {
             _logger.LogDebug("Get successful heartbeat results.");
-            _argument = _argument!.CreateWithAdvice(result.AsT0);
+            _argument = _argument!.CreateWithAdviceAndFullReconnect(result.AsT0, false);
             _heartBeatTimes.SetEnd();
             await SendHeartbeat(_argument, cancellationToken).ConfigureAwait(false);
-            _fullReconnect = false;
 
             return;
         }
         _logger.LogDebug("Get error heartbeat results. {Error}", result.AsT1);
-        _fullReconnect = true;
+        _argument = _argument!.CreateWithFullReconnect(true);
     }
 
-    private async Task HandleAbortedOrClosedOrFullReconnectOrTimeOuted(CancellationToken cancellationToken)
+    private async Task HandleAbortedOrClosedOrFullReconnectOrTimeOuted(bool fullReconnect, CancellationToken cancellationToken)
     {
         try
         {
-            if (_fullReconnect)
+            if (fullReconnect)
             {
                 await ExecuteFullReConnect(cancellationToken).ConfigureAwait(false);
 
@@ -238,7 +236,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
                 _logger.LogDebug("Subscribed.");
             }
         }
-        _fullReconnect = false;
+        _argument = _argument!.CreateWithFullReconnect(false);
     }
 
     private async Task SendHeartbeat(Argument argument, CancellationToken cancellationToken)
@@ -326,7 +324,6 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         _heartBeatTimes.Clear();
         ClearCollectionWrappers();
         await argument.ClientWebSocketWrapper.DisposeAsync().ConfigureAwait(false);
-        _fullReconnect = false;
         _argument = null;
     }
 
@@ -345,7 +342,6 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         {
             await _argument.ClientWebSocketWrapper.DisposeAsync().ConfigureAwait(false);
         }
-        _fullReconnect = false;
         _argument = null;
     }
 
@@ -358,11 +354,12 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
 
     private sealed class Argument
     {
-        public Argument(string clientId, IClientWebSocketWrapper clientWebSocketWrapper, Advice advice)
+        public Argument(string clientId, IClientWebSocketWrapper clientWebSocketWrapper, Advice advice, bool fullReconnect)
         {
             ClientId = clientId;
             ClientWebSocketWrapper = clientWebSocketWrapper;
             Advice = advice;
+            FullReconnect = fullReconnect;
         }
 
         public string ClientId { get; }
@@ -371,10 +368,15 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
 
         public Advice Advice { get; }
 
-        public Argument CreateWithAdvice(Advice advice) => 
-            new(ClientId, ClientWebSocketWrapper, advice);
+        public bool FullReconnect { get; }
+
+        public Argument CreateWithAdviceAndFullReconnect(Advice advice, bool fullReconnect) => 
+            new(ClientId, ClientWebSocketWrapper, advice, fullReconnect);
 
         public Argument CreateWithClientIdAndAdvice(string clientId, Advice advice) =>
-            new(clientId, ClientWebSocketWrapper, advice);
+            new(clientId, ClientWebSocketWrapper, advice, FullReconnect);
+
+        public Argument CreateWithFullReconnect(bool fullReconnect) =>
+            new(ClientId, ClientWebSocketWrapper, Advice, fullReconnect);
     }
 }
