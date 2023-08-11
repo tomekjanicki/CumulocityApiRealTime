@@ -126,7 +126,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
             {
                 return response.AsT1;
             }
-            _argument = new Argument(response.AsT0, _argument.ClientWebSocketWrapper, _defaultAdvice);
+            _argument = _argument.CreateWithClientIdAndAdvice(response.AsT0, _defaultAdvice);
             await SendHeartbeat(_argument, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
         }
         else
@@ -174,7 +174,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         if (result.IsT0)
         {
             _logger.LogDebug("Get successful heartbeat results.");
-            _argument = new Argument(_argument!.ClientId, _argument.ClientWebSocketWrapper, result.AsT0);
+            _argument = _argument!.CreateWithAdvice(result.AsT0);
             _heartBeatTimes.SetEnd();
             await SendHeartbeat(_argument, cancellationToken).ConfigureAwait(false);
             _fullReconnect = false;
@@ -370,5 +370,11 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         public IClientWebSocketWrapper ClientWebSocketWrapper { get; }
 
         public Advice Advice { get; }
+
+        public Argument CreateWithAdvice(Advice advice) => 
+            new(ClientId, ClientWebSocketWrapper, advice);
+
+        public Argument CreateWithClientIdAndAdvice(string clientId, Advice advice) =>
+            new(clientId, ClientWebSocketWrapper, advice);
     }
 }

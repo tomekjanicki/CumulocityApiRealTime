@@ -23,9 +23,9 @@ public sealed class HeartBeatTimes
         End = null;
     }
 
-    public override string ToString() => 
+    public override string ToString() =>
         $"Start: {GetText(Start)}, End: {GetText(End)}";
 
-    private static string GetText(DateTime? value) => 
+    private static string GetText(DateTime? value) =>
         value is null ? "null" : value.Value.ToString("O");
 }
