@@ -7,7 +7,6 @@ public sealed class ConcurrentCollectionWrapper<T>
 {
     private readonly IDictionary<string, T> _items = new Dictionary<string, T>();
 
-
     public T? TryGetAndRemove(string id)
     {
         lock (_items)
@@ -21,7 +20,6 @@ public sealed class ConcurrentCollectionWrapper<T>
             return value;
         }
     }
-
 
     public void Add(T item)
     {
