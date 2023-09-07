@@ -26,5 +26,5 @@ public sealed class NullRealTimeWebSocketClientArgument : IRealTimeWebSocketClie
     public IRealTimeWebSocketClientArgument CreateWithFullReconnect(bool fullReconnect) =>
         Instance;
 
-    public static readonly NullRealTimeWebSocketClientArgument Instance = new(string.Empty, new NullClientWebSocketWrapper(), new Advice(), false);
+    public static readonly NullRealTimeWebSocketClientArgument Instance = new(string.Empty, NullClientWebSocketWrapper.Instance, new Advice(), false);
 }

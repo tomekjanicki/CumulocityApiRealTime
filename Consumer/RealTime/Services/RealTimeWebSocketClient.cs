@@ -24,6 +24,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
     private readonly ResponseProcessor<UnsubscribeResponse> _unsubscribeResponses;
     private readonly HashSet<Subscription> _subscriptions;
     private readonly HeartBeatTimes _heartBeatTimes;
+    private readonly Uri _uri;
     private IRealTimeWebSocketClientArgument _argument; 
 
     public RealTimeWebSocketClient(IOptions<ConfigurationSettings> options, IDataFeedHandler dataFeedHandler, ILogger<RealTimeWebSocketClient> logger,
@@ -50,6 +51,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         _subscriptions = new HashSet<Subscription>();
         _heartBeatTimes = new HeartBeatTimes(dateTimeProvider);
         _argument = NullRealTimeWebSocketClientArgument.Instance;
+        _uri = new Uri($"{options.Value.WebSocketUrl}notification/realtime");
     }
 
     public Task<Error?> Connect(CancellationToken cancellationToken = default) =>
@@ -145,8 +147,8 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         {
             return "Already connected.".GetError(false);
         }
-        var clientWebSocket = _clientWebSocketWrapperFactory.GetNewInstance(_logger, static (bytes, p, token) => p.DataHandler(bytes, token),
-            (state, p, token) => p.MonitorHandler(state, token), this);
+        var clientWebSocket = _clientWebSocketWrapperFactory.GetNewInstance(_logger, _uri, this, static (bytes, p, token) => p.DataHandler(bytes, token),
+            (state, p, token) => p.MonitorHandler(state, token));
         var connectResult = await clientWebSocket.Connect(tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
         if (connectResult is not null)
         {

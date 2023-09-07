@@ -4,7 +4,9 @@ public sealed class ConfigurationSettings
 {
     public const string Section = "Configuration";
 
-    public Uri ApiUri { get; init; } = new("ws://localhost/");
+    public bool SecureProtocol { get; init; }
+
+    public string HostName { get; init; } = string.Empty;
 
     public string UserName { get; init; } = string.Empty;
 
@@ -17,4 +19,8 @@ public sealed class ConfigurationSettings
     public TimeSpan OperationTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
     public TimeSpan WebSocketClientMonitorInterval { get; init; } = TimeSpan.FromSeconds(20);
+
+    public string WebSocketUrl => $"{(SecureProtocol ? "wss" : "ws")}://{HostName}/";
+
+    public string HttpUrl => $"{(SecureProtocol ? "https" : "http")}://{HostName}/";
 }

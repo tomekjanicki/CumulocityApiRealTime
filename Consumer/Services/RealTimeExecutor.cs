@@ -8,11 +8,13 @@ public sealed class RealTimeExecutor
 {
     private readonly IRealTimeWebSocketClient _client;
     private readonly ILogger<RealTimeExecutor> _logger;
+    private readonly Notification2Facade _facade;
 
-    public RealTimeExecutor(IRealTimeWebSocketClient client, ILogger<RealTimeExecutor> logger)
+    public RealTimeExecutor(IRealTimeWebSocketClient client, ILogger<RealTimeExecutor> logger, Notification2Facade facade)
     {
         _client = client;
         _logger = logger;
+        _facade = facade;
     }
 
     public async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -20,6 +22,7 @@ public sealed class RealTimeExecutor
         _logger.LogInformation("Start executing.");
         try
         {
+            await ExecuteInt2(cancellationToken).ConfigureAwait(false);
             await ExecuteInt(cancellationToken).ConfigureAwait(false);
             await ExecuteInt(cancellationToken).ConfigureAwait(false);
         }
@@ -28,6 +31,30 @@ public sealed class RealTimeExecutor
             _logger.LogError(e, "Generic exception.");
         }
         _logger.LogInformation("Finish executing.");
+    }
+
+    private async Task ExecuteInt2(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Trying to start.");
+        var startResult = await _facade.Start(new TenantSubscription("testSubscription"), cancellationToken).ConfigureAwait(false);
+        if (startResult.IsT1)
+        {
+            _logger.LogError("Start failed. Error message: {Message}, Status code: {StatusCode}", startResult.AsT1.Message, startResult.AsT1.StatusCode);
+
+            return;
+        }
+        _logger.LogInformation("Started.");
+        Console.ReadLine();
+        var data = startResult.AsT0;
+        _logger.LogInformation("Trying to stop.");
+        var stopResult = await _facade.Stop(data, cancellationToken).ConfigureAwait(false);
+        if (stopResult is not null)
+        {
+            _logger.LogError("Stop failed. Error message: {Message}, Status code: {StatusCode}", startResult.AsT1.Message, startResult.AsT1.StatusCode);
+
+            return;
+        }
+        _logger.LogInformation("Stopped.");
     }
 
     private async Task ExecuteInt(CancellationToken cancellationToken)
@@ -54,8 +81,8 @@ public sealed class RealTimeExecutor
 
     private async Task HandleSubscribe(CancellationToken cancellationToken)
     {
-        const string id1 = "28218078";
-        const string id2 = "28229998";
+        const string id1 = "6276939014";
+        const string id2 = "3076938153";
         var subscription1 = new Subscription(id1, NotificationType.ManagedObject);
         var subscription2 = new Subscription(id2, NotificationType.ManagedObject);
         var subscribe1Task = _client.Subscribe(subscription1, cancellationToken);

@@ -16,4 +16,10 @@ public sealed class NullClientWebSocketWrapper : IClientWebSocketWrapper
     public Task Close(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public WebSocketState? State => null;
+
+    private NullClientWebSocketWrapper()
+    {
+    }
+
+    public static readonly NullClientWebSocketWrapper Instance = new();
 }
