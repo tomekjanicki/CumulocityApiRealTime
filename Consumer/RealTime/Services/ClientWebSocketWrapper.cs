@@ -94,7 +94,7 @@ public sealed class ClientWebSocketWrapper<TParam> : IClientWebSocketWrapper
                     }
                     await jobTask(param, argument, cancellationToken).ConfigureAwait(false);
                 }
-                catch (TaskCanceledException)
+                catch (OperationCanceledException)
                 {
                 }
                 catch (Exception e)

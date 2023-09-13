@@ -12,7 +12,7 @@ public static class Wrappers
         {
             return await getOkResult(param, cancellationTokenSource.Token).ConfigureAwait(false);
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             if (cancellationTokenSource.IsCancellationRequested)
             {
