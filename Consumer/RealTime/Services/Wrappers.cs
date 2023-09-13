@@ -5,16 +5,16 @@ namespace Consumer.RealTime.Services;
 
 public static class Wrappers
 {
-    public static async Task<TResult> ExecutionWrapper<TResult, TParam>(TParam param, TimeSpan timeOut, Func<TParam, CancellationTokenSources, Task<TResult>> getOkResult, Func<TResult> getTimeoutResult, CancellationToken cancellationToken)
+    public static async Task<TResult> ExecutionWrapper<TResult, TParam>(TParam param, TimeSpan timeOut, Func<TParam, CancellationToken, Task<TResult>> getOkResult, Func<TResult> getTimeoutResult, CancellationToken cancellationToken)
     {
-        using var tokenSources = CancellationTokenSources.Create(timeOut, cancellationToken);
+        using var cancellationTokenSource = Helper.CreateCancellationTokenSource(cancellationToken, timeOut);
         try
         {
-            return await getOkResult(param, tokenSources).ConfigureAwait(false);
+            return await getOkResult(param, cancellationTokenSource.Token).ConfigureAwait(false);
         }
         catch (TaskCanceledException)
         {
-            if (tokenSources.InternalTokenSourceIsCancellationRequested)
+            if (cancellationTokenSource.IsCancellationRequested)
             {
                 return getTimeoutResult();
             }
@@ -24,7 +24,7 @@ public static class Wrappers
     }
 
     public static TResult HandleResponse<TResult, TResponse, TParam>(TParam param, Func<TParam, TResponse?> getResponseFunc,
-        Func<TResponse, TResult> getOkMessage, Func<TResult> getCancelMessage, CancellationTokenSources tokenSources)
+        Func<TResponse, TResult> getOkMessage, Func<TResult> getCancelMessage, CancellationToken token)
         where TResponse : class
     {
         while (true)
@@ -34,11 +34,11 @@ public static class Wrappers
             {
                 return getOkMessage(message);
             }
-            if (tokenSources.InternalTokenSourceIsCancellationRequested)
+            if (token.IsCancellationRequested)
             {
                 return getCancelMessage();
             }
-            tokenSources.LinkedTokenSourceToken.ThrowIfCancellationRequested();
+            token.ThrowIfCancellationRequested();
         }
     }
 

@@ -26,7 +26,7 @@ public sealed class RealTimeWebSocketClient2 : IRealTimeWebSocketClient2
     }
 
     public Task<Error?> Connect(string token, CancellationToken cancellationToken = default) =>
-        Wrappers.ExecutionWrapper((This: this, token), _operationTimeout, static (p, sources) => p.This.ConnectInt(sources, p.token), static () => GetTimeoutError(), cancellationToken);
+        Wrappers.ExecutionWrapper((This: this, token), _operationTimeout, static (p, cancellationToken) => p.This.ConnectInt(p.token, cancellationToken), static () => GetTimeoutError(), cancellationToken);
 
     public async Task Disconnect(CancellationToken cancellationToken = default)
     {
@@ -44,12 +44,12 @@ public sealed class RealTimeWebSocketClient2 : IRealTimeWebSocketClient2
         _clientWebSocketWrapper = NullClientWebSocketWrapper.Instance;
     }
 
-    private async Task<Error?> ConnectInt(CancellationTokenSources tokenSources, string token)
+    private async Task<Error?> ConnectInt(string token, CancellationToken cancellationToken)
     {
         var uri = new Uri($"{_uri}/consumer/?token={token}");
         var clientWebSocket = _clientWebSocketWrapperFactory.GetNewInstance(_logger, uri, this, static (bytes, p, token) => p.DataHandler(bytes, token),
-            (state, p, cancellationToken) => p.MonitorHandler(state, cancellationToken));
-        var connectResult = await clientWebSocket.Connect(tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
+            static (state, p, cancellationToken) => p.MonitorHandler(state, cancellationToken));
+        var connectResult = await clientWebSocket.Connect(cancellationToken).ConfigureAwait(false);
         if (connectResult is not null)
         {
             return new Error(true, connectResult.Value.Value);
@@ -62,7 +62,7 @@ public sealed class RealTimeWebSocketClient2 : IRealTimeWebSocketClient2
     private Task<Error?> ReConnect(CancellationToken cancellationToken = default) =>
         Wrappers.ExecutionWrapper(this, _operationTimeout, static (p, sources) => p.ReConnectInt(sources), static () => GetTimeoutError(), cancellationToken);
 
-    private async Task<Error?> ReConnectInt(CancellationTokenSources tokenSources)
+    private async Task<Error?> ReConnectInt(CancellationToken cancellationToken)
     {
         if (ClientWebSocketWrapperIsNullClientWebSocketWrapper())
         {
@@ -72,7 +72,7 @@ public sealed class RealTimeWebSocketClient2 : IRealTimeWebSocketClient2
         {
             return null;
         }
-        var connectResult = await _clientWebSocketWrapper.ReConnect(tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
+        var connectResult = await _clientWebSocketWrapper.ReConnect(cancellationToken).ConfigureAwait(false);
 
         return connectResult is not null ? new Error(true, connectResult.Value.Value) : null;
     }

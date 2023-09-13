@@ -9,18 +9,18 @@ public sealed class ResponseProcessor<T>
 {
     private readonly ConcurrentCollectionWrapper<T> _responses = new();
 
-    public async Task<TResult> SendAndReceive<TResult, TParam>(IClientWebSocketWrapper clientWebSocketWrapper, CancellationTokenSources tokenSources, TParam param, Func<string, TParam, Request> requestProvider, Func<T, TResult> getOkMessage,
-        Func<TResult> getCancelMessage)
+    public async Task<TResult> SendAndReceive<TResult, TParam>(IClientWebSocketWrapper clientWebSocketWrapper, TParam param, Func<string, TParam, Request> requestProvider, Func<T, TResult> getOkMessage,
+        Func<TResult> getCancelMessage, CancellationToken token)
     {
         var requestId = Guid.NewGuid().ToString();
         var request = requestProvider(requestId, param);
-        await clientWebSocketWrapper.Send(request, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
+        await clientWebSocketWrapper.Send(request, token).ConfigureAwait(false);
 
         return Wrappers.HandleResponse((_responses, requestId),
             static p => p._responses.TryGetAndRemove(p.requestId),
             getOkMessage,
             getCancelMessage,
-            tokenSources);
+            token);
     }
 
     public void Add(T response) => 

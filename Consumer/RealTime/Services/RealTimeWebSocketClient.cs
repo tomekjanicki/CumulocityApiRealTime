@@ -99,7 +99,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         }
     }
     
-    private async Task<Error?> ReConnectInt(bool full, CancellationTokenSources tokenSources)
+    private async Task<Error?> ReConnectInt(bool full, CancellationToken token)
     {
         if (ArgumentIsNullRealTimeWebSocketClientArgument())
         {
@@ -109,7 +109,7 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         _heartBeatTimes.Clear();
         if (_argument.ClientWebSocketWrapper.State != WebSocketState.Open)
         {
-            var connectResult = await _argument.ClientWebSocketWrapper.ReConnect(tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
+            var connectResult = await _argument.ClientWebSocketWrapper.ReConnect(token).ConfigureAwait(false);
             if (connectResult is not null)
             {
                 return new Error(true, connectResult.Value.Value);
@@ -118,55 +118,55 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
         if (full)
         {
             _logger.LogDebug("Executing full reconnect.");
-            var response = await _handShakeResponses.SendAndReceive(_argument.ClientWebSocketWrapper, tokenSources, this, static (requestId, p) => new HandShakeRequest
+            var response = await _handShakeResponses.SendAndReceive(_argument.ClientWebSocketWrapper, this, static (requestId, p) => new HandShakeRequest
                 {
                     Id = requestId,
                     Ext = p._ext
                 },
                 static response => response.ToResult(WebSocket),
-                static () => GetTimeoutError()).ConfigureAwait(false);
+                static () => GetTimeoutError(), token).ConfigureAwait(false);
             if (response.IsT1)
             {
                 return response.AsT1;
             }
             _argument = _argument.CreateWithClientIdAndAdvice(response.AsT0, _defaultAdvice);
-            await SendHeartbeat(_argument, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
+            await SendHeartbeat(_argument, token).ConfigureAwait(false);
         }
         else
         {
             _logger.LogDebug("Executing partial reconnect.");
-            await SendHeartbeat(_argument, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
+            await SendHeartbeat(_argument, token).ConfigureAwait(false);
         }
         
         return null;
     }
 
-    private async Task<Error?> ConnectInt(CancellationTokenSources tokenSources)
+    private async Task<Error?> ConnectInt(CancellationToken token)
     {
         if (!ArgumentIsNullRealTimeWebSocketClientArgument())
         {
             return "Already connected.".GetError(false);
         }
         var clientWebSocket = _clientWebSocketWrapperFactory.GetNewInstance(_logger, _uri, this, static (bytes, p, token) => p.DataHandler(bytes, token),
-            (state, p, token) => p.MonitorHandler(state, token));
-        var connectResult = await clientWebSocket.Connect(tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
+            static (state, p, token) => p.MonitorHandler(state, token));
+        var connectResult = await clientWebSocket.Connect(token).ConfigureAwait(false);
         if (connectResult is not null)
         {
             return new Error(true, connectResult.Value.Value);
         }
-        var response = await _handShakeResponses.SendAndReceive(clientWebSocket, tokenSources, this, static (requestId, p) => new HandShakeRequest
+        var response = await _handShakeResponses.SendAndReceive(clientWebSocket, this, static (requestId, p) => new HandShakeRequest
             {
                 Id = requestId,
                 Ext = p._ext
             },
             static response => response.ToResult(WebSocket),
-            static () => GetTimeoutError()).ConfigureAwait(false);
+            static () => GetTimeoutError(), token).ConfigureAwait(false);
         if (response.IsT1)
         {
             return response.AsT1;
         }
         _argument = new RealTimeWebSocketClientArgument(response.AsT0, clientWebSocket, _defaultAdvice, false);
-        await SendHeartbeat(_argument, tokenSources.LinkedTokenSourceToken).ConfigureAwait(false);
+        await SendHeartbeat(_argument, token).ConfigureAwait(false);
 
         return null;
     }
@@ -262,21 +262,21 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
     public Task<Error?> Subscribe(Subscription subscription, CancellationToken cancellationToken = default) =>
         Wrappers.ExecutionWrapper((subscription, This: this), _operationTimeout, static (p, sources) => p.This.SubscribeInt(p.subscription, sources), static () => GetTimeoutError(), cancellationToken);
 
-    private async Task<Error?> SubscribeInt(Subscription subscription, CancellationTokenSources tokenSources)
+    private async Task<Error?> SubscribeInt(Subscription subscription, CancellationToken token)
     {
         if (ArgumentIsNullRealTimeWebSocketClientArgument())
         {
             return "Connect was not called.".GetError(false);
         }
         var subscriptionString = subscription.GetSubscriptionString();
-        var response = await _subscribeResponses.SendAndReceive(_argument.ClientWebSocketWrapper, tokenSources, (_argument.ClientId, subscriptionString), static (requestId, p) => new SubscribeRequest
+        var response = await _subscribeResponses.SendAndReceive(_argument.ClientWebSocketWrapper, (_argument.ClientId, subscriptionString), static (requestId, p) => new SubscribeRequest
         {
                 Id = requestId,
                 ClientId = p.ClientId,
                 Subscription = p.subscriptionString,
         },
             static response => response.ToResult(),
-            static () => GetTimeoutError()).ConfigureAwait(false);
+            static () => GetTimeoutError(), token).ConfigureAwait(false);
         if (response is null)
         {
             _subscriptions.Add(subscription);
@@ -288,21 +288,21 @@ public sealed class RealTimeWebSocketClient : IRealTimeWebSocketClient
     public Task<Error?> Unsubscribe(Subscription subscription, CancellationToken cancellationToken = default) =>
         Wrappers.ExecutionWrapper((subscription, This: this), _operationTimeout, static (p, sources) => p.This.UnsubscribeInt(p.subscription, sources), static () => GetTimeoutError(), cancellationToken);
 
-    private async Task<Error?> UnsubscribeInt(Subscription subscription, CancellationTokenSources tokenSources)
+    private async Task<Error?> UnsubscribeInt(Subscription subscription, CancellationToken token)
     {
         if (ArgumentIsNullRealTimeWebSocketClientArgument())
         {
             return "Connect was not called.".GetError(false);
         }
         var subscriptionString = subscription.GetSubscriptionString();
-        var response = await _unsubscribeResponses.SendAndReceive(_argument.ClientWebSocketWrapper, tokenSources, (_argument.ClientId, subscriptionString), static (requestId, p) => new UnsubscribeRequest
+        var response = await _unsubscribeResponses.SendAndReceive(_argument.ClientWebSocketWrapper, (_argument.ClientId, subscriptionString), static (requestId, p) => new UnsubscribeRequest
         {
                 Id = requestId,
                 ClientId = p.ClientId,
                 Subscription = p.subscriptionString,
             },
             static response => response.ToResult(),
-            static () => GetTimeoutError()).ConfigureAwait(false);
+            static () => GetTimeoutError(), token).ConfigureAwait(false);
         if (response is null)
         {
             _subscriptions.Remove(subscription);
