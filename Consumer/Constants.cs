@@ -13,7 +13,7 @@ public static class Constants
 
     public static JsonSerializerOptions CamelCaseJsonSerializerOptions { get; }
 
-    public const string ClientName = "notification";
+    public const string ClientName = "Notification";
 
     public static readonly ApiError NullResultApiError = new("Result is null.", null);
 }
