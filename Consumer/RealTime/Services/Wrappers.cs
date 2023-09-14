@@ -5,6 +5,39 @@ namespace Consumer.RealTime.Services;
 
 public static class Wrappers
 {
+    public static async Task HandlerWrapper<T, TArgument>(T param, Func<TArgument?> argumentFunc, TimeSpan minimalDelay, Action<Exception, T> outerLoggerAction, Action<Exception, T> innerLoggerAction,
+        Func<T, TArgument, CancellationToken, Task> jobTask, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    var argument = argumentFunc();
+                    if (argument is null)
+                    {
+                        await Task.Delay(minimalDelay, cancellationToken).ConfigureAwait(false);
+
+                        continue;
+                    }
+                    await jobTask(param, argument, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception e)
+                {
+                    innerLoggerAction(e, param);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            outerLoggerAction(e, param);
+        }
+    }
+
     public static async Task<TResult> ExecutionWrapper<TResult, TParam>(TParam param, TimeSpan timeOut, Func<TParam, CancellationToken, Task<TResult>> getOkResult, Func<TResult> getTimeoutResult, CancellationToken cancellationToken)
     {
         using var cancellationTokenSource = Helper.CreateCancellationTokenSource(cancellationToken, timeOut);

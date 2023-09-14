@@ -76,38 +76,10 @@ public sealed class ClientWebSocketWrapper<TParam> : IClientWebSocketWrapper
         _argument = null;
     }
 
-    private async Task HandlerWrapper<T>(T param, Action<Exception, T> outerLoggerAction, Action<Exception, T> innerLoggerAction,
-        Func<T, Argument<ClientWebSocketWrapper<TParam>>, CancellationToken, Task> jobTask, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                try
-                {
-                    var argument = _argument;
-                    if (argument is null)
-                    {
-                        await Task.Delay(_minimalDelay, cancellationToken).ConfigureAwait(false);
-
-                        continue;
-                    }
-                    await jobTask(param, argument, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                }
-                catch (Exception e)
-                {
-                    innerLoggerAction(e, param);
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            outerLoggerAction(e, param);
-        }
-    }
+    private Task HandlerWrapper<T>(T param, Action<Exception, T> outerLoggerAction, Action<Exception, T> innerLoggerAction,
+        Func<T, Argument<ClientWebSocketWrapper<TParam>>, CancellationToken, Task> jobTask, CancellationToken cancellationToken = default) =>
+        Wrappers.HandlerWrapper(param, () => _argument, _minimalDelay, outerLoggerAction, innerLoggerAction,
+            jobTask, cancellationToken);
 
     private Task MonitorHandler(CancellationToken cancellationToken) =>
         HandlerWrapper(this,
